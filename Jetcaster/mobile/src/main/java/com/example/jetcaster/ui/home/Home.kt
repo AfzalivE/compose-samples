@@ -73,13 +73,15 @@ import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.allVerticalHingeBounds
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.HingePolicy
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
+import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.occludingVerticalHingeBounds
@@ -308,7 +310,7 @@ private fun HomeScreenReady(
     val navigator = rememberSupportingPaneScaffoldNavigator<String>(
         scaffoldDirective = calculateScaffoldDirective(currentWindowAdaptiveInfo())
     )
-    BackHandler(enabled = navigator.canNavigateBack()) {
+    BackHandler(enabled = navigator.canNavigateBack(BackNavigationBehavior.PopLatest)) {
         coroutineScope.launch { navigator.navigateBack() }
     }
 
@@ -375,6 +377,19 @@ private fun HomeScreenReady(
                     )
                 },
                 modifier = Modifier.fillMaxSize(),
+                paneExpansionState = rememberPaneExpansionState(
+                    anchors = listOf(
+                        PaneExpansionAnchor.Offset(360.dp),
+                        PaneExpansionAnchor.Proportion(0.5f),
+                        PaneExpansionAnchor.Offset((-360).dp),
+                    ),
+                ),
+                paneExpansionDragHandle = { state ->
+                    PaneExpansionDragHandle(
+                        state = state,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
             )
         }
     }
