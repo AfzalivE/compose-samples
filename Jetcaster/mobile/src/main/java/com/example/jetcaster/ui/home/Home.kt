@@ -73,7 +73,9 @@ import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.allVerticalHingeBounds
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.HingePolicy
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
@@ -156,7 +158,7 @@ private val HomeState.showHomeCategoryTabs: Boolean
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 private fun HomeState.showGrid(
-    scaffoldValue: ThreePaneScaffoldValue
+    scaffoldValue: ThreePaneScaffoldValue,
 ): Boolean = windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED ||
     (
         windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.MEDIUM &&
@@ -175,7 +177,7 @@ private fun <T> ThreePaneScaffoldNavigator<T>.isMainPaneHidden(): Boolean {
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun calculateScaffoldDirective(
     windowAdaptiveInfo: WindowAdaptiveInfo,
-    verticalHingePolicy: HingePolicy = HingePolicy.AvoidSeparating
+    verticalHingePolicy: HingePolicy = HingePolicy.AvoidSeparating,
 ): PaneScaffoldDirective {
     val maxHorizontalPartitions: Int
     val verticalSpacerSize: Dp
@@ -239,7 +241,7 @@ private fun getExcludedVerticalBounds(posture: Posture, hingePolicy: HingePolicy
 fun MainScreen(
     windowSizeClass: WindowSizeClass,
     navigateToPlayer: (EpisodeInfo) -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val homeScreenUiState by viewModel.state.collectAsStateWithLifecycle()
     when (val uiState = homeScreenUiState) {
@@ -300,13 +302,14 @@ private fun HomeScreenReady(
     uiState: HomeScreenUiState.Ready,
     windowSizeClass: WindowSizeClass,
     navigateToPlayer: (EpisodeInfo) -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val navigator = rememberSupportingPaneScaffoldNavigator<String>(
         scaffoldDirective = calculateScaffoldDirective(currentWindowAdaptiveInfo())
     )
     BackHandler(enabled = navigator.canNavigateBack()) {
-        navigator.navigateBack()
+        coroutineScope.launch { navigator.navigateBack() }
     }
 
     val homeState = HomeState(
@@ -321,7 +324,9 @@ private fun HomeScreenReady(
         onCategorySelected = viewModel::onCategorySelected,
         onPodcastUnfollowed = viewModel::onPodcastUnfollowed,
         navigateToPodcastDetails = {
-            navigator.navigateTo(SupportingPaneScaffoldRole.Supporting, it.uri)
+            coroutineScope.launch {
+                navigator.navigateTo(SupportingPaneScaffoldRole.Supporting, it.uri)
+            }
         },
         navigateToPlayer = navigateToPlayer,
         onTogglePodcastFollowed = viewModel::onTogglePodcastFollowed,
@@ -330,7 +335,7 @@ private fun HomeScreenReady(
     )
 
     Surface {
-        val podcastUri = navigator.currentDestination?.content
+        val podcastUri = navigator.currentDestination?.contentKey
         val showGrid = homeState.showGrid(navigator.scaffoldValue)
         if (podcastUri.isNullOrEmpty()) {
             HomeScreen(
@@ -354,7 +359,9 @@ private fun HomeScreenReady(
                         navigateToPlayer = navigateToPlayer,
                         navigateBack = {
                             if (navigator.canNavigateBack()) {
-                                navigator.navigateBack()
+                                coroutineScope.launch {
+                                    navigator.navigateBack()
+                                }
                             }
                         },
                         showBackButton = navigator.isMainPaneHidden(),
@@ -367,7 +374,7 @@ private fun HomeScreenReady(
                         modifier = Modifier.fillMaxSize()
                     )
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
@@ -423,7 +430,7 @@ private fun HomeAppBar(
 @Composable
 private fun HomeScreenBackground(
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
+    content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
         modifier = modifier
@@ -442,7 +449,7 @@ private fun HomeScreenBackground(
 private fun HomeScreen(
     homeState: HomeState,
     showGrid: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // Effect that changes the home category selection when there are no subscribed podcasts
     LaunchedEffect(key1 = homeState.featuredPodcasts) {
@@ -791,7 +798,7 @@ private fun HomeCategoryTabs(
 @Composable
 private fun HomeCategoryTabIndicator(
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurface
+    color: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Spacer(
         modifier
