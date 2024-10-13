@@ -32,6 +32,9 @@ dependencyResolutionManagement {
 
         google()
         mavenCentral()
+        maven {
+            url = uri("https://androidx.dev/snapshots/builds/12492042/artifacts/repository")
+        }
     }
 }
 rootProject.name = "Jetcaster"

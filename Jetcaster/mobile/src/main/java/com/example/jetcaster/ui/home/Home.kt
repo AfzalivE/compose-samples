@@ -18,7 +18,8 @@
 
 package com.example.jetcaster.ui.home
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,16 +73,17 @@ import androidx.compose.material3.adaptive.Posture
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.allVerticalHingeBounds
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.HingePolicy
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
 import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
-import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldAdaptStrategies
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
-import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
+import androidx.compose.material3.adaptive.navigation.NavigableSupportingPaneScaffold
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.occludingVerticalHingeBounds
@@ -89,8 +91,11 @@ import androidx.compose.material3.adaptive.separatingVerticalHingeBounds
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -308,11 +313,17 @@ private fun HomeScreenReady(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val navigator = rememberSupportingPaneScaffoldNavigator<String>(
-        scaffoldDirective = calculateScaffoldDirective(currentWindowAdaptiveInfo())
+        scaffoldDirective = calculateScaffoldDirective(
+            currentWindowAdaptiveInfo(),
+        ),
     )
-    BackHandler(enabled = navigator.canNavigateBack(BackNavigationBehavior.PopLatest)) {
-        coroutineScope.launch { navigator.navigateBack() }
+    PredictiveBackHandler(enabled = navigator.canNavigateBack()) { progressFlow ->
+        progressFlow.collect { backEvent ->
+            navigator.seekBack(fraction = backEvent.progress)
+        }
     }
+
+    val podcastUri = navigator.currentDestination?.contentKey
 
     val homeState = HomeState(
         windowSizeClass = windowSizeClass,
@@ -337,61 +348,57 @@ private fun HomeScreenReady(
     )
 
     Surface {
-        val podcastUri = navigator.currentDestination?.contentKey
         val showGrid = homeState.showGrid(navigator.scaffoldValue)
-        if (podcastUri.isNullOrEmpty()) {
-            HomeScreen(
-                homeState = homeState,
-                showGrid = showGrid,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            SupportingPaneScaffold(
-                value = navigator.scaffoldValue,
-                directive = navigator.scaffoldDirective,
-                supportingPane = {
-                    val podcastDetailsViewModel =
-                        hiltViewModel<PodcastDetailsViewModel, PodcastDetailsViewModel.Factory>(
-                            key = podcastUri
-                        ) {
-                            it.create(podcastUri)
-                        }
-                    PodcastDetailsScreen(
-                        viewModel = podcastDetailsViewModel,
-                        navigateToPlayer = navigateToPlayer,
-                        navigateBack = {
-                            if (navigator.canNavigateBack()) {
-                                coroutineScope.launch {
-                                    navigator.navigateBack()
-                                }
+        val paneExpansionState = rememberPaneExpansionState(
+            anchors = listOf(
+                PaneExpansionAnchor.Offset(360.dp),
+                PaneExpansionAnchor.Proportion(0.5f),
+                PaneExpansionAnchor.Offset((-360).dp),
+            ),
+        )
+
+        NavigableSupportingPaneScaffold(
+            navigator = navigator,
+            supportingPane = {
+                if (!podcastUri.isNullOrEmpty()) {
+                    AnimatedPane {
+                        val podcastDetailsViewModel =
+                            hiltViewModel<PodcastDetailsViewModel, PodcastDetailsViewModel.Factory>(
+                                key = podcastUri
+                            ) {
+                                it.create(podcastUri)
                             }
-                        },
-                        showBackButton = navigator.isMainPaneHidden(),
-                    )
-                },
-                mainPane = {
-                    HomeScreen(
-                        homeState = homeState,
-                        showGrid = showGrid,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                },
-                modifier = Modifier.fillMaxSize(),
-                paneExpansionState = rememberPaneExpansionState(
-                    anchors = listOf(
-                        PaneExpansionAnchor.Offset(360.dp),
-                        PaneExpansionAnchor.Proportion(0.5f),
-                        PaneExpansionAnchor.Offset((-360).dp),
-                    ),
-                ),
-                paneExpansionDragHandle = { state ->
-                    PaneExpansionDragHandle(
-                        state = state,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
+                        PodcastDetailsScreen(
+                            viewModel = podcastDetailsViewModel,
+                            navigateToPlayer = navigateToPlayer,
+                            navigateBack = {
+                                if (navigator.canNavigateBack()) {
+                                    coroutineScope.launch {
+                                        navigator.navigateBack()
+                                    }
+                                }
+                            },
+                            showBackButton = navigator.isMainPaneHidden(),
+                        )
+                    }
                 }
-            )
-        }
+            },
+            mainPane = {
+                HomeScreen(
+                    homeState = homeState,
+                    showGrid = showGrid,
+                    modifier = Modifier.fillMaxSize()
+                )
+            },
+            modifier = Modifier.fillMaxSize(),
+            paneExpansionState = paneExpansionState,
+            paneExpansionDragHandle = { state ->
+                PaneExpansionDragHandle(
+                    state = state,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        )
     }
 }
 
