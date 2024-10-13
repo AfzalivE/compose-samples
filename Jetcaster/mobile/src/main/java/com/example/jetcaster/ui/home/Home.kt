@@ -19,7 +19,6 @@
 package com.example.jetcaster.ui.home
 
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,7 +79,6 @@ import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
-import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldAdaptStrategies
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.NavigableSupportingPaneScaffold
@@ -91,11 +89,8 @@ import androidx.compose.material3.adaptive.separatingVerticalHingeBounds
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -323,8 +318,6 @@ private fun HomeScreenReady(
         }
     }
 
-    val podcastUri = navigator.currentDestination?.contentKey
-
     val homeState = HomeState(
         windowSizeClass = windowSizeClass,
         featuredPodcasts = uiState.featuredPodcasts,
@@ -338,7 +331,7 @@ private fun HomeScreenReady(
         onPodcastUnfollowed = viewModel::onPodcastUnfollowed,
         navigateToPodcastDetails = {
             coroutineScope.launch {
-                navigator.navigateTo(SupportingPaneScaffoldRole.Supporting, it.uri)
+                navigator.navigateTo(SupportingPaneScaffoldRole.Extra, it.uri)
             }
         },
         navigateToPlayer = navigateToPlayer,
@@ -349,6 +342,8 @@ private fun HomeScreenReady(
 
     Surface {
         val showGrid = homeState.showGrid(navigator.scaffoldValue)
+        val podcastUri = navigator.currentDestination?.contentKey
+
         val paneExpansionState = rememberPaneExpansionState(
             anchors = listOf(
                 PaneExpansionAnchor.Offset(360.dp),
@@ -359,7 +354,8 @@ private fun HomeScreenReady(
 
         NavigableSupportingPaneScaffold(
             navigator = navigator,
-            supportingPane = {
+            supportingPane = {},
+            extraPane = {
                 if (!podcastUri.isNullOrEmpty()) {
                     AnimatedPane {
                         val podcastDetailsViewModel =
@@ -384,11 +380,13 @@ private fun HomeScreenReady(
                 }
             },
             mainPane = {
-                HomeScreen(
-                    homeState = homeState,
-                    showGrid = showGrid,
-                    modifier = Modifier.fillMaxSize()
-                )
+                AnimatedPane {
+                    HomeScreen(
+                        homeState = homeState,
+                        showGrid = showGrid,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             },
             modifier = Modifier.fillMaxSize(),
             paneExpansionState = paneExpansionState,
