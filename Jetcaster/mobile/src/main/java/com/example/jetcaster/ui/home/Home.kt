@@ -19,6 +19,11 @@
 package com.example.jetcaster.ui.home
 
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,6 +84,7 @@ import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
 import androidx.compose.material3.adaptive.layout.PaneMotion
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
+import androidx.compose.material3.adaptive.layout.PaneScaffoldMotionScope
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.ThreePaneMotion
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldState
@@ -415,9 +421,15 @@ fun ThreePaneScaffoldState.calculateThreePaneMotion(): ThreePaneMotion {
         // end of state transitions.
         resultHolder.value =
             ThreePaneMotion(
-                calculatePaneMotion(currentState.primary, targetState.primary),
-                calculatePaneMotion(currentState.secondary, targetState.secondary),
-                calculatePaneMotion(currentState.tertiary, targetState.tertiary),
+                primaryPaneMotion = calculatePaneMotion(currentState.primary, targetState.primary),
+                secondaryPaneMotion = calculatePaneMotion(
+                    currentState.secondary,
+                    targetState.secondary
+                ),
+                tertiaryPaneMotion = calculatePaneMotion(
+                    currentState.tertiary,
+                    targetState.tertiary
+                ),
             )
     }
     return resultHolder.value
@@ -438,15 +450,41 @@ fun calculatePaneMotion(
 
     // Entering.
     if (!wasShown && isShown) {
-        return PaneMotion.EnterWithExpand
+        return EnterWithExpandIn
     }
 
     // Exiting.
     if (!isShown && wasShown) {
-        return PaneMotion.ExitWithShrink
+        return ExitWithShrinkOut
     }
 
     return PaneMotion.NoMotion
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+val EnterWithExpandIn = object : PaneMotion {
+    override val type: PaneMotion.Type
+        get() = PaneMotion.Type.Entering
+    override val PaneScaffoldMotionScope.enterTransition: EnterTransition
+        get() = expandIn(
+            animationSpec = tween(500, delayMillis = 250),
+            expandFrom = Alignment.Center
+        )
+    override val PaneScaffoldMotionScope.exitTransition: ExitTransition
+        get() = ExitTransition.None
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+val ExitWithShrinkOut = object : PaneMotion {
+    override val type: PaneMotion.Type
+        get() = PaneMotion.Type.Exiting
+    override val PaneScaffoldMotionScope.enterTransition: EnterTransition
+        get() = EnterTransition.None
+    override val PaneScaffoldMotionScope.exitTransition: ExitTransition
+        get() = shrinkOut(
+            animationSpec = tween(500, delayMillis = 250),
+            shrinkTowards = Alignment.Center
+        )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
