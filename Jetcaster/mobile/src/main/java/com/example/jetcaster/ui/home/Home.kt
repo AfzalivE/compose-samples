@@ -21,8 +21,14 @@ package com.example.jetcaster.ui.home
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.AnimationVector
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.TwoWayConverter
+import androidx.compose.animation.core.VectorizedFiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -110,6 +116,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -450,12 +458,12 @@ fun calculatePaneMotion(
 
     // Entering.
     if (!wasShown && isShown) {
-        return EnterWithExpandIn
+        return EnterWithFadeIn
     }
 
     // Exiting.
     if (!isShown && wasShown) {
-        return ExitWithShrinkOut
+        return ExitWithFadeOut
     }
 
     return PaneMotion.NoMotion
@@ -467,7 +475,7 @@ val EnterWithExpandIn = object : PaneMotion {
         get() = PaneMotion.Type.Entering
     override val PaneScaffoldMotionScope.enterTransition: EnterTransition
         get() = expandIn(
-            animationSpec = tween(500, delayMillis = 250),
+            animationSpec = animationSpecs.sizeAnimationSpec,
             expandFrom = Alignment.Center
         )
     override val PaneScaffoldMotionScope.exitTransition: ExitTransition
@@ -482,9 +490,45 @@ val ExitWithShrinkOut = object : PaneMotion {
         get() = EnterTransition.None
     override val PaneScaffoldMotionScope.exitTransition: ExitTransition
         get() = shrinkOut(
-            animationSpec = tween(500, delayMillis = 250),
+            animationSpec = animationSpecs.sizeAnimationSpec,
             shrinkTowards = Alignment.Center
         )
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+val EnterWithFadeIn = object : PaneMotion {
+    override val type: PaneMotion.Type
+        get() = PaneMotion.Type.Entering
+    override val PaneScaffoldMotionScope.enterTransition: EnterTransition
+        get() = fadeIn(DerivedFadeAnimationSpec(animationSpecs.boundsAnimationSpec))
+    override val PaneScaffoldMotionScope.exitTransition: ExitTransition
+        get() = ExitTransition.None
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+val ExitWithFadeOut = object : PaneMotion {
+    override val type: PaneMotion.Type
+        get() = PaneMotion.Type.Exiting
+    override val PaneScaffoldMotionScope.enterTransition: EnterTransition
+        get() = EnterTransition.None
+    override val PaneScaffoldMotionScope.exitTransition: ExitTransition
+        get() = fadeOut(DerivedFadeAnimationSpec(animationSpecs.boundsAnimationSpec))
+}
+
+internal class DerivedFadeAnimationSpec(private val boundsSpec: FiniteAnimationSpec<IntRect>) :
+    FiniteAnimationSpec<Float> {
+    override fun <V : AnimationVector> vectorize(converter: TwoWayConverter<Float, V>): VectorizedFiniteAnimationSpec<V> {
+        return boundsSpec.vectorize(
+            object : TwoWayConverter<IntRect, V> {
+                override val convertFromVector: (V) -> IntRect = { vector ->
+                    with(converter.convertFromVector(vector)) { IntRect(0, 0, toInt(), toInt()) }
+                }
+                override val convertToVector: (IntRect) -> V = { bounds ->
+                    converter.convertToVector(bounds.size.width.toFloat())
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
