@@ -77,8 +77,11 @@ import androidx.compose.material3.adaptive.layout.HingePolicy
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
 import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneExpansionDragHandle
+import androidx.compose.material3.adaptive.layout.PaneMotion
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffoldRole
+import androidx.compose.material3.adaptive.layout.ThreePaneMotion
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldState
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.NavigableSupportingPaneScaffold
@@ -129,12 +132,12 @@ import com.example.jetcaster.util.fullWidthItem
 import com.example.jetcaster.util.isCompact
 import com.example.jetcaster.util.quantityStringResource
 import com.example.jetcaster.util.radialGradientScrim
-import java.time.Duration
-import java.time.LocalDateTime
-import java.time.OffsetDateTime
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
 
 data class HomeState(
     val windowSizeClass: WindowSizeClass,
@@ -353,11 +356,12 @@ private fun HomeScreenReady(
         )
 
         NavigableSupportingPaneScaffold(
+            paneMotions = navigator.scaffoldState.calculateThreePaneMotion(),
             navigator = navigator,
             supportingPane = {},
             extraPane = {
-                if (!podcastUri.isNullOrEmpty()) {
-                    AnimatedPane {
+                AnimatedPane {
+                    if (!podcastUri.isNullOrEmpty()) {
                         val podcastDetailsViewModel =
                             hiltViewModel<PodcastDetailsViewModel, PodcastDetailsViewModel.Factory>(
                                 key = podcastUri
@@ -398,6 +402,51 @@ private fun HomeScreenReady(
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+fun ThreePaneScaffoldState.calculateThreePaneMotion(): ThreePaneMotion {
+    class ThreePaneMotionHolder(var value: ThreePaneMotion)
+
+    val resultHolder = remember { ThreePaneMotionHolder(ThreePaneMotion.NoMotion) }
+    if (currentState != targetState) {
+        // Only update motions when the state changes to prevent unnecessary recomposition at the
+        // end of state transitions.
+        resultHolder.value =
+            ThreePaneMotion(
+                calculatePaneMotion(currentState.primary, targetState.primary),
+                calculatePaneMotion(currentState.secondary, targetState.secondary),
+                calculatePaneMotion(currentState.tertiary, targetState.tertiary),
+            )
+    }
+    return resultHolder.value
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+fun calculatePaneMotion(
+    currentState: PaneAdaptedValue,
+    targetState: PaneAdaptedValue,
+): PaneMotion {
+    val wasShown = currentState == PaneAdaptedValue.Expanded
+    val isShown = targetState == PaneAdaptedValue.Expanded
+
+    // No change in visibility.
+    if (wasShown && isShown) {
+        return PaneMotion.AnimateBounds
+    }
+
+    // Entering.
+    if (!wasShown && isShown) {
+        return PaneMotion.EnterWithExpand
+    }
+
+    // Exiting.
+    if (!isShown && wasShown) {
+        return PaneMotion.ExitWithShrink
+    }
+
+    return PaneMotion.NoMotion
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
