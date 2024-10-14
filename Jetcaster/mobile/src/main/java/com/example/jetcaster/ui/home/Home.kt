@@ -500,7 +500,7 @@ val EnterWithFadeIn = object : PaneMotion {
     override val type: PaneMotion.Type
         get() = PaneMotion.Type.Entering
     override val PaneScaffoldMotionScope.enterTransition: EnterTransition
-        get() = fadeIn(DerivedFadeAnimationSpec(animationSpecs.boundsAnimationSpec))
+        get() = fadeIn()
     override val PaneScaffoldMotionScope.exitTransition: ExitTransition
         get() = ExitTransition.None
 }
@@ -512,7 +512,7 @@ val ExitWithFadeOut = object : PaneMotion {
     override val PaneScaffoldMotionScope.enterTransition: EnterTransition
         get() = EnterTransition.None
     override val PaneScaffoldMotionScope.exitTransition: ExitTransition
-        get() = fadeOut(DerivedFadeAnimationSpec(animationSpecs.boundsAnimationSpec))
+        get() = fadeOut()
 }
 
 internal class DerivedFadeAnimationSpec(private val boundsSpec: FiniteAnimationSpec<IntRect>) :
